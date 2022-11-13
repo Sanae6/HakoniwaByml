@@ -48,7 +48,7 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
             return true;
         }
 
-        if (Type == BymlDataType.Hash) { //
+        if (Type == BymlDataType.Hash) {
             int size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
             ReadOnlySpan<BymlHashPair> pairs =
                 MemoryMarshal.Cast<byte, BymlHashPair>(Data[(RootNode + 4)..(RootNode + 4 + size * 8)]);
@@ -58,6 +58,38 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
             return true;
         }
 
+        return false;
+    }
+
+    public bool ContainsKey(string key) {
+        if (RootNode == 0) return false;
+
+        if (Type == BymlDataType.Hash) {
+            int size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
+            ReadOnlySpan<BymlHashPair> pairs =
+                MemoryMarshal.Cast<byte, BymlHashPair>(Data[(RootNode + 4)..(RootNode + 4 + size * 8)]);
+            BymlStringTableIter hashTable = new BymlStringTableIter(Data[Header.HashKeyTableOffset..]);
+
+            int low = 0;
+            int high = size;
+            while (low < high) {
+                int avg = (low + high) / 2;
+                BymlHashPair pair = pairs[avg];
+                int result = string.Compare(key, hashTable.GetString(pair.Key),
+                    StringComparison.Ordinal);
+                switch (result) {
+                    case 0:return true;
+                    case > 0:
+                        low = avg + 1;
+                        break;
+                    case < 0:
+                        high = avg;
+                        break;
+                }
+            }
+
+            return false;
+        }
         return false;
     }
 
@@ -77,7 +109,7 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
             return true;
         }
 
-        if (Type == BymlDataType.Hash) { //
+        if (Type == BymlDataType.Hash) {
             int size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
             if (size <= index) return false;
             ReadOnlySpan<BymlHashPair> pairs =
@@ -95,7 +127,7 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
 
     internal bool TryGetValue(string key, out BymlData data) {
         data = default;
-        if (Type == BymlDataType.Hash) { //
+        if (Type == BymlDataType.Hash) {
             int size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
             ReadOnlySpan<BymlHashPair> pairs =
                 MemoryMarshal.Cast<byte, BymlHashPair>(Data[(RootNode + 4)..(RootNode + 4 + size * 8)]);
