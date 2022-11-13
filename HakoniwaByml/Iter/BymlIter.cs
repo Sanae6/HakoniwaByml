@@ -379,6 +379,10 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
         }
     }
 
+    public IEnumerable<KeyValuePair<string?, T?>> As<T>() {
+        return this.Select(pair => new KeyValuePair<string?, T?>(pair.Key, (T?) pair.Value));
+    }
+
     IEnumerator<KeyValuePair<string?, object?>> IEnumerable<KeyValuePair<string?, object?>>.GetEnumerator() {
         int length = GetSize();
         if (!Iterable) throw new InvalidCastException("This node is not iterable.");
