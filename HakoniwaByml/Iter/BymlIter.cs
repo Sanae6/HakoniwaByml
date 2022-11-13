@@ -17,16 +17,16 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
     public BymlIter(ReadOnlyMemory<byte> data) {
         Buffer = data;
         Header = MemoryMarshal.Read<BymlHeader>(Buffer.Span);
-        if (!LittleEndian) throw new Exception("Big endian not supported!");
         RootNode = Header.DataOffset;
-        Type = (BymlDataType)Data[RootNode];
+        Type = (BymlDataType)data.Span[RootNode];
+        if (!LittleEndian) throw new Exception("Big endian not supported!");
     }
 
     internal BymlIter(BymlIter owner, int rootNode) {
         Buffer = owner.Buffer;
         Header = owner.Header;
         RootNode = rootNode;
-        Type = (BymlDataType)Data[RootNode];
+        Type = (BymlDataType)owner.Data[RootNode];
     }
 
     public bool TryGetSize(out int size) {
