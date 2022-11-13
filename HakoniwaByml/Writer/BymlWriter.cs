@@ -130,4 +130,8 @@ public sealed class BymlWriter {
     public void Add(string key, BymlArray value) { Root.Add(key, value); }
     public void Add(string key, BymlHash value) { Root.Add(key, value); }
     #endregion
+
+    public object this[string key] {
+        set => Root[key] = value;
+    }
 }

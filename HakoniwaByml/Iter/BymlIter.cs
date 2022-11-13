@@ -1,33 +1,38 @@
 ﻿using System.Buffers.Binary;
+using System.Collections;
 using System.Runtime.InteropServices;
 using HakoniwaByml.Common;
 
 namespace HakoniwaByml.Iter;
 
-public record struct BymlIter {
+public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
+    private bool LittleEndian => Header.Tag == BymlHeader.LittleEndianMarker; // YB
     internal int RootNode;
     internal BymlHeader Header;
-    private ReadOnlyMemory<byte> Buffer;
     internal ReadOnlySpan<byte> Data => Buffer.Span;
-    private bool LittleEndian => Header.Tag == BymlHeader.LittleEndianMarker; // YB
+    private readonly ReadOnlyMemory<byte> Buffer;
+    public readonly BymlDataType Type;
+    public bool Iterable => Type is BymlDataType.Array or BymlDataType.Hash;
 
     public BymlIter(ReadOnlyMemory<byte> data) {
         Buffer = data;
         Header = MemoryMarshal.Read<BymlHeader>(Buffer.Span);
         if (!LittleEndian) throw new Exception("Big endian not supported!");
         RootNode = Header.DataOffset;
+        Type = (BymlDataType)Data[RootNode];
     }
 
     internal BymlIter(BymlIter owner, int rootNode) {
         Buffer = owner.Buffer;
         Header = owner.Header;
         RootNode = rootNode;
+        Type = (BymlDataType)Data[RootNode];
     }
 
     public bool TryGetSize(out int size) {
-        size = default;
+        size = 0; // explicit zero instead of default
         if (RootNode == 0) return false;
-        if ((BymlDataType) Data[RootNode] is BymlDataType.Array or BymlDataType.Hash) {
+        if (Type is BymlDataType.Array or BymlDataType.Hash) {
             size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
             return true;
         }
@@ -38,12 +43,12 @@ public record struct BymlIter {
         key = default;
         if (RootNode == 0) return false;
 
-        if ((BymlDataType) Data[RootNode] == BymlDataType.Array) {
+        if (Type == BymlDataType.Array) {
             key = index.ToString();
             return true;
         }
 
-        if ((BymlDataType) Data[RootNode] == BymlDataType.Hash) { //
+        if (Type == BymlDataType.Hash) { //
             int size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
             ReadOnlySpan<BymlHashPair> pairs =
                 MemoryMarshal.Cast<byte, BymlHashPair>(Data[(RootNode + 4)..(RootNode + 4 + size * 8)]);
@@ -58,10 +63,10 @@ public record struct BymlIter {
 
     internal bool TryGetValue(int index, out BymlData data) {
         data = default;
-        if (RootNode == 0)
+        if (RootNode == 0 || index < 0)
             return false;
 
-        if ((BymlDataType) Data[RootNode] == BymlDataType.Array) {
+        if (Type == BymlDataType.Array) {
             int size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
             if (size <= index) return false;
             int typeOffset = RootNode + 4 + index;
@@ -72,7 +77,7 @@ public record struct BymlIter {
             return true;
         }
 
-        if ((BymlDataType) Data[RootNode] == BymlDataType.Hash) { //
+        if (Type == BymlDataType.Hash) { //
             int size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
             if (size <= index) return false;
             ReadOnlySpan<BymlHashPair> pairs =
@@ -90,7 +95,7 @@ public record struct BymlIter {
 
     internal bool TryGetValue(string key, out BymlData data) {
         data = default;
-        if ((BymlDataType) Data[RootNode] == BymlDataType.Hash) { //
+        if (Type == BymlDataType.Hash) { //
             int size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
             ReadOnlySpan<BymlHashPair> pairs =
                 MemoryMarshal.Cast<byte, BymlHashPair>(Data[(RootNode + 4)..(RootNode + 4 + size * 8)]);
@@ -222,4 +227,170 @@ public record struct BymlIter {
         value = default;
         return TryGetValue(key, out BymlData data) && data.TryGetIter(ref this, out value);
     }
+
+    #region Helpers
+    public bool TryGetValue(int index, out object? value) {
+        value = null!;
+        if (!TryGetValue(index, out BymlData data)) {
+            return false;
+        }
+
+        switch (data.Type) {
+            case BymlDataType.Bool:
+                if (TryGetValue(index, out bool b)) {
+                    value = b;
+                    return true;
+                }
+                break;
+            case BymlDataType.Int:
+                if (TryGetValue(index, out bool i)) {
+                    value = i;
+                    return true;
+                }
+                break;
+            case BymlDataType.Uint:
+                if (TryGetValue(index, out bool u)) {
+                    value = u;
+                    return true;
+                }
+                break;
+            case BymlDataType.Long:
+                if (TryGetValue(index, out bool l)) {
+                    value = l;
+                    return true;
+                }
+                break;
+            case BymlDataType.Ulong:
+                if (TryGetValue(index, out bool ul)) {
+                    value = ul;
+                    return true;
+                }
+                break;
+            case BymlDataType.Float:
+                if (TryGetValue(index, out float f)) {
+                    value = f;
+                    return true;
+                }
+                break;
+            case BymlDataType.Double:
+                if (TryGetValue(index, out double d)) {
+                    value = d;
+                    return true;
+                }
+                break;
+            case BymlDataType.String:
+                if (TryGetValue(index, out string? s)) {
+                    value = s;
+                    return true;
+                }
+                break;
+            case BymlDataType.Hash or BymlDataType.Array:
+                if (TryGetValue(index, out BymlIter t)) {
+                    value = t;
+                    return true;
+                }
+                break;
+        }
+
+        return false;
+    }
+
+    public bool TryGetValue(string key, out object? value) {
+        value = null!;
+        if (!TryGetValue(key, out BymlData data)) {
+            return false;
+        }
+
+        switch (data.Type) {
+            case BymlDataType.Bool:
+                if (TryGetValue(key, out bool b)) {
+                    value = b;
+                    return true;
+                }
+                break;
+            case BymlDataType.Int:
+                if (TryGetValue(key, out bool i)) {
+                    value = i;
+                    return true;
+                }
+                break;
+            case BymlDataType.Uint:
+                if (TryGetValue(key, out bool u)) {
+                    value = u;
+                    return true;
+                }
+                break;
+            case BymlDataType.Long:
+                if (TryGetValue(key, out bool l)) {
+                    value = l;
+                    return true;
+                }
+                break;
+            case BymlDataType.Ulong:
+                if (TryGetValue(key, out bool ul)) {
+                    value = ul;
+                    return true;
+                }
+                break;
+            case BymlDataType.Float:
+                if (TryGetValue(key, out float f)) {
+                    value = f;
+                    return true;
+                }
+                break;
+            case BymlDataType.Double:
+                if (TryGetValue(key, out double d)) {
+                    value = d;
+                    return true;
+                }
+                break;
+            case BymlDataType.String:
+                if (TryGetValue(key, out string? s)) {
+                    value = s;
+                    return true;
+                }
+                break;
+            case BymlDataType.Hash or BymlDataType.Array:
+                if (TryGetValue(key, out BymlIter t)) {
+                    value = t;
+                    return true;
+                }
+                break;
+        }
+
+        return false;
+    }
+
+    /**
+     * <remarks>May have a performance penalty, it's best to cache the returned size.</remarks>
+     */
+    public int GetSize() {
+        if (!Iterable) throw new InvalidCastException("This node is not iterable.");
+        TryGetSize(out int size);
+        return size;
+    }
+    public object? this[int index] {
+        get {
+            if (!Iterable)
+                throw new InvalidCastException("This node is not iterable.");
+            if (!TryGetValue(index, out object? value))
+                throw new ArgumentOutOfRangeException(nameof (index));
+            return value;
+        }
+    }
+
+    IEnumerator<KeyValuePair<string?, object?>> IEnumerable<KeyValuePair<string?, object?>>.GetEnumerator() {
+        int length = GetSize();
+        if (Type != BymlDataType.Hash) throw new InvalidCastException("This is not a hash node.");
+        for (int i = 0; i < length; i++) {
+            TryGetKey(i, out string? key);
+            TryGetValue(i, out object? value);
+
+            yield return new KeyValuePair<string?, object?>(key, value);
+        }
+    }
+    IEnumerator IEnumerable.GetEnumerator() {
+        return ((IEnumerable<KeyValuePair<string, object?>>) this).GetEnumerator();
+    }
+    #endregion
 }

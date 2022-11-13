@@ -9,7 +9,7 @@ moog.AddNull("Among");
 moog.Add("cutie", true);
 moog.Add("eh", 4.0f);
 moog.Add("bee", 3.0);
-moog.Add("se", 23451L);
+moog["se"] = 23451L;
 moog.Add("su", 12345UL);
 moog.Add("おとこのこ", 231);
 moog.Add("thea", 125U);
@@ -25,6 +25,10 @@ data = moog.Serialize();
 File.WriteAllBytes("Moog.byml", data.ToArray());
 
 BymlIter byml = new BymlIter(data);
+
+foreach ((string? key, object? value) in byml) {
+    Console.WriteLine($"{key} {value}");
+}
 
 void Dump(BymlIter iter, string indent = "") {
     if (!iter.TryGetSize(out int size)) throw new Exception("what");

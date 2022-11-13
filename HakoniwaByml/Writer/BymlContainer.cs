@@ -31,6 +31,7 @@ public abstract class BymlContainer {
     public virtual void Add(string key, string value) { throw new NotSupportedException(); }
     public virtual void Add(string key, BymlArray value) { throw new NotSupportedException(); }
     public virtual void Add(string key, BymlHash value) { throw new NotSupportedException(); }
+    public virtual object this[string key] { set => throw new NotSupportedException(); }
 }
 
 public sealed class BymlArray : BymlContainer {
@@ -240,6 +241,22 @@ public sealed class BymlHash : BymlContainer {
     }
     public override void Add(string name, BymlHash value) {
         Add(BymlDataType.Hash, name, value);
+    }
+
+    public override object this[string key] {
+        set => Add(value switch {
+            bool => BymlDataType.Bool,
+            int => BymlDataType.Int,
+            uint => BymlDataType.Uint,
+            long => BymlDataType.Long,
+            ulong => BymlDataType.Ulong,
+            float => BymlDataType.Float,
+            double => BymlDataType.Double,
+            string => BymlDataType.String,
+            BymlHash => BymlDataType.Hash,
+            BymlArray => BymlDataType.Array,
+            _ => throw new ArgumentException("Invalid type passed.", nameof(value))
+        }, key, value);
     }
 
     private class EntryComparer : Comparer<Entry> {
