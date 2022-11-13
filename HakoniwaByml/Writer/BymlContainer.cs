@@ -1,7 +1,4 @@
 ﻿using System.Buffers.Binary;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Text;
 using HakoniwaByml.Common;
 using HakoniwaByml.Iter;
 
@@ -20,6 +17,7 @@ public abstract class BymlContainer {
     public virtual void Add(string value) { throw new NotSupportedException(); }
     public virtual void Add(BymlArray value) { throw new NotSupportedException(); }
     public virtual void Add(BymlHash value) { throw new NotSupportedException(); }
+    public virtual void Add(BymlContainer value) { throw new NotSupportedException(); }
     public virtual void AddNull(string key) { throw new NotSupportedException(); }
     public virtual void Add(string key, bool value) { throw new NotSupportedException(); }
     public virtual void Add(string key, int value) { throw new NotSupportedException(); }
@@ -31,13 +29,13 @@ public abstract class BymlContainer {
     public virtual void Add(string key, string value) { throw new NotSupportedException(); }
     public virtual void Add(string key, BymlArray value) { throw new NotSupportedException(); }
     public virtual void Add(string key, BymlHash value) { throw new NotSupportedException(); }
+    public virtual void Add(string key, BymlContainer value) { throw new NotSupportedException(); }
     public virtual object this[string key] { set => throw new NotSupportedException(); }
 }
 
 public sealed class BymlArray : BymlContainer {
-    private record struct Entry(BymlDataType Key, object? Value);
 
-    private List<Entry> Nodes = new List<Entry>();
+    private readonly List<Entry> Nodes = new List<Entry>();
     internal override int Serialize(BymlWriter owner, BinaryWriter writer) {
         long basePos = writer.BaseStream.Position;
         long typePos = basePos + 4,
@@ -141,12 +139,19 @@ public sealed class BymlArray : BymlContainer {
     public override void Add(BymlHash value) {
         Nodes.Add(new Entry(BymlDataType.Hash, value));
     }
+    public override void Add(BymlContainer value) {
+        Nodes.Add(new Entry(value switch {
+            BymlArray => BymlDataType.Array,
+            BymlHash => BymlDataType.Hash
+        }, value));
+    }
+
+    private record struct Entry(BymlDataType Key, object? Value);
 }
 
 public sealed class BymlHash : BymlContainer {
-    private record struct Entry(BymlDataType Type, string Name, object Value);
 
-    private SortedSet<Entry> Nodes = new SortedSet<Entry>(new EntryComparer());
+    private readonly SortedSet<Entry> Nodes = new SortedSet<Entry>(new EntryComparer());
     internal override int Serialize(BymlWriter owner, BinaryWriter writer) {
         long basePos = writer.BaseStream.Position;
         long entryPos = basePos + 4,
@@ -184,7 +189,7 @@ public sealed class BymlHash : BymlContainer {
                     pair.Value = i;
                     break;
                 case uint u:
-                    pair.Value = (int)u;
+                    pair.Value = (int) u;
                     break;
                 case float f:
                     pair.Value = BitConverter.SingleToInt32Bits(f);
@@ -242,6 +247,12 @@ public sealed class BymlHash : BymlContainer {
     public override void Add(string name, BymlHash value) {
         Add(BymlDataType.Hash, name, value);
     }
+    public override void Add(string name, BymlContainer value) {
+        Add(value switch {
+            BymlArray => BymlDataType.Array,
+            BymlHash => BymlDataType.Hash
+        }, name, value);
+    }
 
     public override object this[string key] {
         set => Add(value switch {
@@ -258,6 +269,8 @@ public sealed class BymlHash : BymlContainer {
             _ => throw new ArgumentException("Invalid type passed.", nameof(value))
         }, key, value);
     }
+
+    private record struct Entry(BymlDataType Type, string Name, object Value);
 
     private class EntryComparer : Comparer<Entry> {
         public override int Compare(Entry x, Entry y) {

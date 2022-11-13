@@ -6,19 +6,19 @@ using HakoniwaByml.Common;
 namespace HakoniwaByml.Iter;
 
 public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
-    private bool LittleEndian => Header.Tag == BymlHeader.LittleEndianMarker; // YB
-    internal int RootNode;
-    internal BymlHeader Header;
-    internal ReadOnlySpan<byte> Data => Buffer.Span;
     private readonly ReadOnlyMemory<byte> Buffer;
     public readonly BymlDataType Type;
+    internal BymlHeader Header;
+    internal int RootNode;
+    private bool LittleEndian => Header.Tag == BymlHeader.LittleEndianMarker; // YB
+    internal ReadOnlySpan<byte> Data => Buffer.Span;
     public bool Iterable => Type is BymlDataType.Array or BymlDataType.Hash;
 
     public BymlIter(ReadOnlyMemory<byte> data) {
         Buffer = data;
         Header = MemoryMarshal.Read<BymlHeader>(Buffer.Span);
         RootNode = Header.DataOffset;
-        Type = (BymlDataType)data.Span[RootNode];
+        Type = (BymlDataType) data.Span[RootNode];
         if (!LittleEndian) throw new Exception("Big endian not supported!");
     }
 
@@ -26,7 +26,7 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
         Buffer = owner.Buffer;
         Header = owner.Header;
         RootNode = rootNode;
-        Type = (BymlDataType)owner.Data[RootNode];
+        Type = (BymlDataType) owner.Data[RootNode];
     }
 
     public bool TryGetSize(out int size) {
@@ -78,7 +78,8 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
                 int result = string.Compare(key, hashTable.GetString(pair.Key),
                     StringComparison.Ordinal);
                 switch (result) {
-                    case 0:return true;
+                    case 0:
+                        return true;
                     case > 0:
                         low = avg + 1;
                         break;
@@ -127,6 +128,7 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
 
     internal bool TryGetValue(string key, out BymlData data) {
         data = default;
+
         if (Type == BymlDataType.Hash) {
             int size = BinaryPrimitives.ReadInt32LittleEndian(Data[RootNode..]) >> 8;
             ReadOnlySpan<BymlHashPair> pairs =
@@ -158,15 +160,27 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
             }
             return true;
         }
+
         return false;
     }
 
-    public bool GetTypeByIndex(int index, out BymlDataType type) {
+    public bool TryGetType(int index, out BymlDataType type) {
         type = default;
         if (TryGetValue(index, out BymlData data)) {
             type = data.Type;
             return true;
         }
+        return false;
+    }
+
+    public bool TryGetType(string key, out BymlDataType type) {
+        type = default;
+
+        if (TryGetValue(key, out BymlData data)) {
+            type = data.Type;
+            return true;
+        }
+
         return false;
     }
 
@@ -275,25 +289,25 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
                 }
                 break;
             case BymlDataType.Int:
-                if (TryGetValue(index, out bool i)) {
+                if (TryGetValue(index, out int i)) {
                     value = i;
                     return true;
                 }
                 break;
             case BymlDataType.Uint:
-                if (TryGetValue(index, out bool u)) {
+                if (TryGetValue(index, out uint u)) {
                     value = u;
                     return true;
                 }
                 break;
             case BymlDataType.Long:
-                if (TryGetValue(index, out bool l)) {
+                if (TryGetValue(index, out long l)) {
                     value = l;
                     return true;
                 }
                 break;
             case BymlDataType.Ulong:
-                if (TryGetValue(index, out bool ul)) {
+                if (TryGetValue(index, out ulong ul)) {
                     value = ul;
                     return true;
                 }
@@ -341,25 +355,25 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
                 }
                 break;
             case BymlDataType.Int:
-                if (TryGetValue(key, out bool i)) {
+                if (TryGetValue(key, out int i)) {
                     value = i;
                     return true;
                 }
                 break;
             case BymlDataType.Uint:
-                if (TryGetValue(key, out bool u)) {
+                if (TryGetValue(key, out uint u)) {
                     value = u;
                     return true;
                 }
                 break;
             case BymlDataType.Long:
-                if (TryGetValue(key, out bool l)) {
+                if (TryGetValue(key, out long l)) {
                     value = l;
                     return true;
                 }
                 break;
             case BymlDataType.Ulong:
-                if (TryGetValue(key, out bool ul)) {
+                if (TryGetValue(key, out ulong ul)) {
                     value = ul;
                     return true;
                 }
@@ -406,7 +420,7 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
             if (!Iterable)
                 throw new InvalidCastException("This node is not iterable.");
             if (!TryGetValue(index, out object? value))
-                throw new ArgumentOutOfRangeException(nameof (index));
+                throw new ArgumentOutOfRangeException(nameof(index));
             return value;
         }
     }
