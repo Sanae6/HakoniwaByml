@@ -3,26 +3,26 @@ using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
 
 Memory<byte> data = File.ReadAllBytes(args[0]);
-BymlWriter moog = new BymlWriter(BymlDataType.Hash);
-
-moog.AddNull("Among");
-moog.Add("cutie", true);
-moog.Add("eh", 4.0f);
-moog.Add("bee", 3.0);
-moog["se"] = 23451L;
-moog.Add("su", 12345UL);
-moog.Add("おとこのこ", 231);
-moog.Add("thea", 125U);
-BymlArray city = new BymlArray();
-city.Add("c418");
-BymlHash mc2 = new BymlHash();
-mc2.Add("anadjasfa", 41489);
-
-moog.Add("ww", city);
-moog.Add("wx", mc2);
-
-data = moog.Serialize();
-File.WriteAllBytes("Moog.byml", data.ToArray());
+// BymlWriter moog = new BymlWriter(BymlDataType.Hash);
+//
+// moog.AddNull("Among");
+// moog.Add("cutie", true);
+// moog.Add("eh", 4.0f);
+// moog.Add("bee", 3.0);
+// moog["se"] = 23451L;
+// moog.Add("su", 12345UL);
+// moog.Add("おとこのこ", 231);
+// moog.Add("thea", 125U);
+// BymlArray city = new BymlArray();
+// city.Add("c418");
+// BymlHash mc2 = new BymlHash();
+// mc2.Add("anadjasfa", 41489);
+//
+// moog.Add("ww", city);
+// moog.Add("wx", mc2);
+//
+// data = moog.Serialize();
+// File.WriteAllBytes("Moog.byml", data.ToArray());
 
 BymlIter byml = new BymlIter(data);
 
@@ -79,9 +79,9 @@ void Dump(BymlIter iter, string indent = "") {
                 break;
             }
             case BymlDataType.Hash or BymlDataType.Array: {
-                if (!iter.TryGetValue(i, out BymlIter sub)) throw new Exception("...????");
-                Console.WriteLine();
-                Dump(sub, indent + "  ");
+                // if (!iter.TryGetValue(i, out BymlIter sub)) throw new Exception("...????");
+                // Console.WriteLine();
+                // Dump(sub, indent + "  ");
                 break;
             }
             case BymlDataType.Null:

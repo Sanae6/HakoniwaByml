@@ -381,7 +381,7 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
 
     IEnumerator<KeyValuePair<string?, object?>> IEnumerable<KeyValuePair<string?, object?>>.GetEnumerator() {
         int length = GetSize();
-        if (Type != BymlDataType.Hash) throw new InvalidCastException("This is not a hash node.");
+        if (!Iterable) throw new InvalidCastException("This node is not iterable.");
         for (int i = 0; i < length; i++) {
             TryGetKey(i, out string? key);
             TryGetValue(i, out object? value);
