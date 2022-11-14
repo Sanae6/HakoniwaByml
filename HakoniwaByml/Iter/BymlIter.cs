@@ -336,6 +336,8 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
                     return true;
                 }
                 break;
+            case BymlDataType.Null:
+                return true;
         }
 
         return false;
@@ -402,6 +404,8 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
                     return true;
                 }
                 break;
+            case BymlDataType.Null:
+                return true;
         }
 
         return false;
