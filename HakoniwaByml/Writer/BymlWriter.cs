@@ -89,7 +89,7 @@ public sealed class BymlWriter {
         return (int) addrStart;
     }
 
-    public int SerializeContainer(BymlContainer container, BinaryWriter writer) {\
+    public int SerializeContainer(BymlContainer container, BinaryWriter writer) {
         if (ContainerOffsets.TryGetValue(container, out int offset)) return offset;
         offset = container.Serialize(this, writer);
         ContainerOffsets.Add(container, offset);
