@@ -66,7 +66,7 @@ public sealed class BymlArray : BymlContainer {
                     dataPos += 8;
                     break;
                 case BymlContainer c:
-                    dataOffset = c.Serialize(owner, writer);
+                    dataOffset = owner.SerializeContainer(c, writer);
                     dataPos += writer.BaseStream.Position - dataPos;
                     break;
                 default:
@@ -142,7 +142,8 @@ public sealed class BymlArray : BymlContainer {
     public override void Add(BymlContainer value) {
         Nodes.Add(new Entry(value switch {
             BymlArray => BymlDataType.Array,
-            BymlHash => BymlDataType.Hash
+            BymlHash => BymlDataType.Hash,
+            _ => throw new ArgumentOutOfRangeException(nameof(value))
         }, value));
     }
 
@@ -182,7 +183,7 @@ public sealed class BymlHash : BymlContainer {
                     dataPos += 8;
                     break;
                 case BymlContainer c:
-                    pair.Value = c.Serialize(owner, writer);
+                    pair.Value = owner.SerializeContainer(c, writer);
                     dataPos = writer.BaseStream.Position;
                     break;
                 case int i:
@@ -250,7 +251,8 @@ public sealed class BymlHash : BymlContainer {
     public override void Add(string name, BymlContainer value) {
         Add(value switch {
             BymlArray => BymlDataType.Array,
-            BymlHash => BymlDataType.Hash
+            BymlHash => BymlDataType.Hash,
+            _ => throw new ArgumentOutOfRangeException(nameof(value))
         }, name, value);
     }
 

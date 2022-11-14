@@ -8,6 +8,7 @@ namespace HakoniwaByml.Writer;
 public sealed class BymlWriter {
     private readonly LinkedList<string> HashKeys = new LinkedList<string>();
     private readonly LinkedList<string> Strings = new LinkedList<string>();
+    private readonly Dictionary<BymlContainer, int> ContainerOffsets = new Dictionary<BymlContainer, int>();
     public BymlContainer Root { get; }
     public BymlWriter(BymlDataType rootType) {
         Root = rootType switch {
@@ -88,7 +89,15 @@ public sealed class BymlWriter {
         return (int) addrStart;
     }
 
+    public int SerializeContainer(BymlContainer container, BinaryWriter writer) {\
+        if (ContainerOffsets.TryGetValue(container, out int offset)) return offset;
+        offset = container.Serialize(this, writer);
+        ContainerOffsets.Add(container, offset);
+        return offset;
+    }
+
     public Memory<byte> Serialize(ushort version = 3) {
+        ContainerOffsets.Clear();
         using MemoryStream stream = new MemoryStream {
             Position = 16
         };
