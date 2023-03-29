@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Text;
 using HakoniwaByml.Common;
 using HakoniwaByml.Iter;
 
@@ -42,16 +43,16 @@ public sealed class BymlWriter {
         lock (Strings) {
             LinkedListNode<string>? cur = Strings.First;
             int i = 0;
-            while (cur != null && cur.Next != Strings.Last) {
-                if (cur.Value.Equals(value))
-                    return i;
-                i++;
-                cur = cur.Next;
-            }
+            // while (cur != null && cur.Next != Strings.Last) {
+            //     if (cur.Value.Equals(value))
+            //         return i;
+            //     i++;
+            //     cur = cur.Next;
+            // }
 
-            if (cur == null) Strings.AddLast(value);
-            else Strings.AddAfter(cur, value);
-            return i;
+            /*if (cur == null)*/ Strings.AddLast(value);
+            // else Strings.AddAfter(cur, value);
+            return /*i*/ Strings.Count - 1;
         }
     }
 
@@ -60,31 +61,27 @@ public sealed class BymlWriter {
             return 0;
 
         long addrStart = writer.BaseStream.Position;
-        Span<byte> header = stackalloc byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(header, list.Count << 8 | (int) BymlDataType.StringTable);
-        writer.Write(header);
+        writer.Write(list.Count << 8 | (int) BymlDataType.StringTable);
 
-        Span<int> offsets = stackalloc int[list.Count + 1];
-        writer.BaseStream.Position += list.Count * 4 + 4;
-        writer.BaseStream.Position = writer.BaseStream.Position.Align(0b11);
-
-        int i = 0;
+        int offset = 4 * (list.Count) + 4, i = 0;
+        Span<int> sizes = stackalloc int[list.Count];
+        int maxSize = 0;
         foreach (string str in list) {
-            long offset = writer.BaseStream.Position - addrStart;
-            writer.Write(str.AsSpan());
-            writer.Write((byte) 0);
-            offsets[i++] = (int) offset;
-        }
-
-        offsets[list.Count] = (int) (writer.BaseStream.Position - addrStart);
-
-        long end = writer.BaseStream.Position;
-        writer.BaseStream.Position = addrStart + 4;
-        foreach (int offset in offsets) {
             writer.Write(offset);
+            int size = sizes[i++] = Encoding.UTF8.GetByteCount(str);
+            maxSize = Math.Max(maxSize, size);
+            offset += size + 1;
         }
 
-        writer.BaseStream.Position = end;
+        i = 0;
+        Span<byte> strBuf = stackalloc byte[maxSize];
+        foreach (string str in list) {
+            Encoding.UTF8.GetBytes(str.AsSpan(), strBuf);
+            writer.Write(strBuf[..sizes[i++]]);
+            writer.Write((byte) 0);
+        }
+
+        writer.BaseStream.Position = writer.BaseStream.Position.Align(0b11);
 
         return (int) addrStart;
     }
@@ -109,12 +106,8 @@ public sealed class BymlWriter {
             DataOffset = Root.Serialize(this, writer)
         };
 
-        lock (HashKeys) {
-            header.HashKeyTableOffset = SerializeStringTable(writer, HashKeys);
-        }
-        lock (Strings) {
-            header.StringTableOffset = SerializeStringTable(writer, Strings);
-        }
+        lock (HashKeys) header.HashKeyTableOffset = SerializeStringTable(writer, HashKeys);
+        lock (Strings) header.StringTableOffset = SerializeStringTable(writer, Strings);
 
         stream.Position = 0;
         stream.Write(ref header);
@@ -138,7 +131,6 @@ public sealed class BymlWriter {
     public void Add(string value) { Root.Add(value); }
     public void Add(BymlArray value) { Root.Add(value); }
     public void Add(BymlHash value) { Root.Add(value); }
-    public void Add(BymlContainer value) { Root.Add(value); }
     public void AddNull(string key) { Root.AddNull(key); }
     public void Add(string key, bool value) { Root.Add(key, value); }
     public void Add(string key, int value) { Root.Add(key, value); }

@@ -141,9 +141,9 @@ public sealed class BymlArray : BymlContainer {
     }
     public override void Add(BymlContainer value) {
         Nodes.Add(new Entry(value switch {
-            BymlArray => BymlDataType.Array,
             BymlHash => BymlDataType.Hash,
-            _ => throw new ArgumentOutOfRangeException(nameof(value))
+            BymlArray => BymlDataType.Array,
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         }, value));
     }
 
@@ -158,9 +158,7 @@ public sealed class BymlHash : BymlContainer {
         long entryPos = basePos + 4,
             dataPos = (entryPos + Nodes.Count * 8).Align(0b11) + Nodes.Count * 4;
 
-        Span<byte> header = stackalloc byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(header, Nodes.Count << 8 | (int) BymlDataType.Hash);
-        writer.Write(header);
+        writer.Write(Nodes.Count << 8 | (int) BymlDataType.Hash);
 
         foreach ((BymlDataType type, string name, object? value) in Nodes) {
             BymlHashPair pair = new BymlHashPair {
@@ -250,9 +248,9 @@ public sealed class BymlHash : BymlContainer {
     }
     public override void Add(string name, BymlContainer value) {
         Add(value switch {
-            BymlArray => BymlDataType.Array,
             BymlHash => BymlDataType.Hash,
-            _ => throw new ArgumentOutOfRangeException(nameof(value))
+            BymlArray => BymlDataType.Array,
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         }, name, value);
     }
 

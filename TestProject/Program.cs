@@ -1,4 +1,7 @@
-﻿using HakoniwaByml.Iter;
+﻿using System.Diagnostics;
+using System.Globalization;
+using System.Text;
+using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
 
 Memory<byte> data = File.ReadAllBytes(args[0]);
@@ -30,68 +33,72 @@ BymlIter byml = new BymlIter(data);
 //     Console.WriteLine($"{key} {value}");
 // }
 
-void Dump(BymlIter iter, string indent = "") {
+StringBuilder Dump(BymlIter iter, string indent = "", StringBuilder? builder = null) {
     if (!iter.TryGetSize(out int size)) throw new Exception("what");
+
+    builder ??= new StringBuilder();
 
     for (int i = 0; i < size; i++) {
         if (!iter.TryGetType(i, out BymlDataType type)) throw new Exception("How");
         if (!iter.TryGetKey(i, out string? key)) throw new Exception("when..");
-        Console.Write($"{indent}[{type}]{key}: ");
+        builder.Append($"{indent}[{type}]{key}: ");
         switch (type) {
             case BymlDataType.String: {
                 if (!iter.TryGetValue(i, out string? value)) throw new Exception("...????");
-                Console.WriteLine(value);
+                builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
                 break;
             }
             case BymlDataType.Bool: {
                 if (!iter.TryGetValue(i, out bool value)) throw new Exception("...????");
-                Console.WriteLine(value);
+                builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
                 break;
             }
             case BymlDataType.Uint: {
                 if (!iter.TryGetValue(i, out uint value)) throw new Exception("...????");
-                Console.WriteLine(value);
+                builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
                 break;
             }
             case BymlDataType.Int: {
                 if (!iter.TryGetValue(i, out int value)) throw new Exception("...????");
-                Console.WriteLine(value);
+                builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
                 break;
             }
             case BymlDataType.Long: {
                 if (!iter.TryGetValue(i, out long value)) throw new Exception("...????");
-                Console.WriteLine(value);
+                builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
                 break;
             }
             case BymlDataType.Ulong: {
                 if (!iter.TryGetValue(i, out ulong value)) throw new Exception("...????");
-                Console.WriteLine(value);
+                builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
                 break;
             }
             case BymlDataType.Float: {
                 if (!iter.TryGetValue(i, out float value)) throw new Exception("...????");
-                Console.WriteLine(value);
+                builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
                 break;
             }
             case BymlDataType.Double: {
                 if (!iter.TryGetValue(i, out double value)) throw new Exception("...????");
-                Console.WriteLine(value);
+                builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
                 break;
             }
             case BymlDataType.Hash or BymlDataType.Array: {
                 if (!iter.TryGetValue(i, out BymlIter sub)) throw new Exception("...????");
-                Console.WriteLine();
-                Dump(sub, indent + "  ");
-                if (type == BymlDataType.Array) return;
+                builder.AppendLine();
+                Dump(sub, indent + "  ", builder);
+                if (type == BymlDataType.Array) return builder;
                 break;
             }
             case BymlDataType.Null:
-                Console.WriteLine("<null>");
+                builder.AppendLine("<null>");
                 break;
             default:
                 throw new NotImplementedException($"Cannot get {type}");
         }
     }
+
+    return builder;
 }
 
 BymlContainer Reserialize(BymlIter iter) {
@@ -137,6 +144,7 @@ BymlContainer Reserialize(BymlIter iter) {
                 default: throw new Exception("wwwwwfwsdmgkasd");
             }
         } else {
+            Debug.Assert(key != null, nameof(key) + " != null");
             switch (value) {
                 case bool b:
                     container.Add(key, b);
@@ -178,8 +186,10 @@ BymlContainer Reserialize(BymlIter iter) {
 
 // Dump(byml);
 BymlWriter reser = new BymlWriter(Reserialize(byml));
-data = reser.Serialize();
+data = reser.Serialize(byml.Version);
 // Dump(byml);
+File.WriteAllText("Old.yml", Dump(byml).ToString());
+File.WriteAllText("New.yml", Dump(new BymlIter(data)).ToString());
 File.WriteAllBytes("Moog.byml", data.ToArray());
 Console.WriteLine("Done!");
 Console.ReadKey();

@@ -11,6 +11,7 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
     internal BymlHeader Header;
     internal int RootNode;
     private bool LittleEndian => Header.Tag == BymlHeader.LittleEndianMarker; // YB
+    public ushort Version => Header.Version;
     internal ReadOnlySpan<byte> Data => Buffer.Span;
     public bool Iterable => Type is BymlDataType.Array or BymlDataType.Hash;
 
