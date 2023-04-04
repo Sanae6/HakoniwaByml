@@ -82,7 +82,6 @@ StringBuilder Dump(BymlIter iter, string indent = "", StringBuilder? builder = n
                 if (!iter.TryGetValue(i, out BymlIter sub)) throw new Exception("...????");
                 builder.AppendLine();
                 Dump(sub, indent + "  ", builder);
-                if (type == BymlDataType.Array) return builder;
                 break;
             }
             case BymlDataType.Null:
