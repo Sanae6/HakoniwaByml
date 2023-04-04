@@ -34,8 +34,8 @@ public abstract class BymlContainer {
 }
 
 public sealed class BymlArray : BymlContainer {
-
     private readonly List<Entry> Nodes = new List<Entry>();
+
     internal override int Serialize(BymlWriter owner, BinaryWriter writer) {
         long basePos = writer.BaseStream.Position;
         long typePos = basePos + 4,
@@ -93,7 +93,7 @@ public sealed class BymlArray : BymlContainer {
                         writer.Write(b);
                         break;
                     case string s:
-                        writer.Write(owner.AddString(s));
+                        writer.Write(owner.AddString(s, writer.BaseStream.Position));
                         break;
                     default:
                         writer.Write(0);
@@ -151,8 +151,8 @@ public sealed class BymlArray : BymlContainer {
 }
 
 public sealed class BymlHash : BymlContainer {
-
     private readonly SortedSet<Entry> Nodes = new SortedSet<Entry>(new EntryComparer());
+
     internal override int Serialize(BymlWriter owner, BinaryWriter writer) {
         long basePos = writer.BaseStream.Position;
         long entryPos = basePos + 4,
@@ -163,7 +163,7 @@ public sealed class BymlHash : BymlContainer {
         foreach ((BymlDataType type, string name, object? value) in Nodes) {
             BymlHashPair pair = new BymlHashPair {
                 Type = type,
-                Key = owner.AddHashString(name),
+                Key = owner.AddHashString(name, entryPos),
                 Value = (int) dataPos
             };
             writer.BaseStream.Position = dataPos;
@@ -197,7 +197,7 @@ public sealed class BymlHash : BymlContainer {
                     pair.Value = Convert.ToInt32(b);
                     break;
                 case string s:
-                    pair.Value = owner.AddString(s);
+                    pair.Value = owner.AddString(s, entryPos + 4);
                     break;
             }
             writer.BaseStream.Position = entryPos;

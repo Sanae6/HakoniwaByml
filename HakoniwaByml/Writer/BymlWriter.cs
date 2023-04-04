@@ -1,14 +1,17 @@
 ﻿using System.Buffers.Binary;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using HakoniwaByml.Common;
 using HakoniwaByml.Iter;
 
 namespace HakoniwaByml.Writer;
 
-// TODO: Add constructor that takes in IEnumerable and converts it cleanly to BymlWriter equivalents
 public sealed class BymlWriter {
-    private readonly LinkedList<string> HashKeys = new LinkedList<string>();
-    private readonly LinkedList<string> Strings = new LinkedList<string>();
+    private int MaxHashLength;
+    private int MaxStringLength;
+    private readonly Dictionary<string, List<long>> HashKeys = new Dictionary<string, List<long>>();
+    private readonly Dictionary<string, List<long>> Strings = new Dictionary<string, List<long>>();
     private readonly Dictionary<BymlContainer, int> ContainerOffsets = new Dictionary<BymlContainer, int>();
     public BymlContainer Root { get; }
     public BymlWriter(BymlDataType rootType) {
@@ -22,66 +25,72 @@ public sealed class BymlWriter {
         Root = container;
     }
 
-    internal int AddHashString(string key) {
+    internal int AddHashString(string key, long position) {
         lock (HashKeys) {
-            LinkedListNode<string>? cur = HashKeys.First;
-            int i = 0;
-            while (cur != null && cur.Next != HashKeys.First) {
-                if (cur.Value.Equals(key))
-                    return i;
-                i++;
-                cur = cur.Next;
+            if (HashKeys.TryGetValue(key, out List<long>? list))
+                list.Add(position);
+            else {
+                MaxHashLength = Math.Max(MaxHashLength, Encoding.UTF8.GetByteCount(key));
+                HashKeys.Add(key, new List<long> {position});
             }
-
-            if (cur == null) HashKeys.AddLast(key);
-            else HashKeys.AddAfter(cur, key);
-            return i;
+            return 0;
         }
     }
 
-    internal int AddString(string value) {
+    internal int AddString(string value, long position) {
         lock (Strings) {
-            LinkedListNode<string>? cur = Strings.First;
-            int i = 0;
-            // while (cur != null && cur.Next != Strings.Last) {
-            //     if (cur.Value.Equals(value))
-            //         return i;
-            //     i++;
-            //     cur = cur.Next;
-            // }
-
-            /*if (cur == null)*/ Strings.AddLast(value);
-            // else Strings.AddAfter(cur, value);
-            return /*i*/ Strings.Count - 1;
+            if (Strings.TryGetValue(value, out List<long>? list))
+                list.Add(position);
+            else {
+                MaxStringLength = Math.Max(MaxStringLength, Encoding.UTF8.GetByteCount(value));
+                Strings.Add(value, new List<long> {position});
+            }
+            return 0;
         }
     }
 
-    private static int SerializeStringTable(BinaryWriter writer, LinkedList<string> list) {
+    private static int SerializeStringTable(BinaryWriter writer, List<KeyValuePair<string, List<long>>> list,
+        int maxSize, bool hash) {
         if (list.Count == 0)
             return 0;
 
         long addrStart = writer.BaseStream.Position;
         writer.Write(list.Count << 8 | (int) BymlDataType.StringTable);
 
-        int offset = 4 * (list.Count) + 4, i = 0;
-        Span<int> sizes = stackalloc int[list.Count];
-        int maxSize = 0;
-        foreach (string str in list) {
-            writer.Write(offset);
-            int size = sizes[i++] = Encoding.UTF8.GetByteCount(str);
-            maxSize = Math.Max(maxSize, size);
-            offset += size + 1;
-        }
+        long offsetsPos = addrStart + 4;
+        int offset = 4 * (list.Count + 2), i = 0;
+        Span<byte> strBuffer = stackalloc byte[maxSize];
+        Span<byte> hashSpan = stackalloc byte[8];
+        foreach ((string? str, List<long>? longs) in list) {
+            int size = Encoding.UTF8.GetBytes(str, strBuffer);
+            writer.BaseStream.Position = addrStart + offset;
+            writer.Write(strBuffer[..size]);
+            writer.Write((byte) 0);
 
-        i = 0;
-        Span<byte> strBuf = stackalloc byte[maxSize];
-        foreach (string str in list) {
-            Encoding.UTF8.GetBytes(str.AsSpan(), strBuf);
-            writer.Write(strBuf[..sizes[i++]]);
+            writer.BaseStream.Position = offsetsPos;
+            writer.Write(offset);
+            offset += size + 1;
+            offsetsPos += 4;
+
+            foreach (long pos in longs) {
+                writer.BaseStream.Position = pos;
+                if (hash) {
+                    _ = writer.BaseStream.Read(hashSpan);
+                    writer.BaseStream.Position -= hashSpan.Length;
+                    ref BymlHashPair pair = ref MemoryMarshal.AsRef<BymlHashPair>(hashSpan);
+                    pair.Key = i;
+                    writer.Write(ref pair);
+                } else {
+                    writer.Write(i);
+                }
+            }
+            i++;
+        }
+        long l = writer.BaseStream.Position = addrStart + offset;
+        l = (4 - (offset & 0b11));
+        for (int j = 0; j < l; j++) {
             writer.Write((byte) 0);
         }
-
-        writer.BaseStream.Position = writer.BaseStream.Position.Align(0b11);
 
         return (int) addrStart;
     }
@@ -95,6 +104,14 @@ public sealed class BymlWriter {
 
     public Memory<byte> Serialize(ushort version = 3) {
         ContainerOffsets.Clear();
+        lock (Strings) {
+            MaxStringLength = 0;
+            Strings.Clear();
+        }
+        lock (HashKeys) {
+            MaxHashLength = 0;
+            HashKeys.Clear();
+        }
         using MemoryStream stream = new MemoryStream {
             Position = 16
         };
@@ -106,8 +123,16 @@ public sealed class BymlWriter {
             DataOffset = Root.Serialize(this, writer)
         };
 
-        lock (HashKeys) header.HashKeyTableOffset = SerializeStringTable(writer, HashKeys);
-        lock (Strings) header.StringTableOffset = SerializeStringTable(writer, Strings);
+        lock (Strings) {
+            List<KeyValuePair<string, List<long>>> strings = Strings.ToList();
+            strings.Sort((x, y) => string.Compare(x.Key, y.Key, StringComparison.Ordinal));
+            header.StringTableOffset = SerializeStringTable(writer, strings, MaxStringLength, false);
+        }
+        lock (HashKeys) {
+            List<KeyValuePair<string, List<long>>> hashKeys = HashKeys.ToList();
+            hashKeys.Sort((x, y) => string.Compare(x.Key, y.Key, StringComparison.Ordinal));
+            header.HashKeyTableOffset = SerializeStringTable(writer, hashKeys, MaxHashLength, true);
+        }
 
         stream.Position = 0;
         stream.Write(ref header);
@@ -119,7 +144,8 @@ public sealed class BymlWriter {
         set => Root[key] = value;
     }
 
-    #region Wrapping Adders
+    #region Root node add methods
+
     public void AddNull() { Root.AddNull(); }
     public void Add(bool value) { Root.Add(value); }
     public void Add(int value) { Root.Add(value); }
@@ -143,5 +169,91 @@ public sealed class BymlWriter {
     public void Add(string key, BymlArray value) { Root.Add(key, value); }
     public void Add(string key, BymlHash value) { Root.Add(key, value); }
     public void Add(string key, BymlContainer value) { Root.Add(key, value); }
+
     #endregion
+
+    public static BymlContainer Copy(BymlIter iter) {
+        BymlContainer container = iter.Type switch {
+            BymlDataType.Array => new BymlArray(),
+            BymlDataType.Hash => new BymlHash(),
+            _ => throw new ArgumentException("Root data type must be Array or Hash")
+        };
+
+        foreach ((string? key, object? value) in iter) {
+            if (iter.Type == BymlDataType.Array) {
+                switch (value) {
+                    case bool b:
+                        container.Add(b);
+                        break;
+                    case int i:
+                        container.Add(i);
+                        break;
+                    case uint u:
+                        container.Add(u);
+                        break;
+                    case float f:
+                        container.Add(f);
+                        break;
+                    case long l:
+                        container.Add(l);
+                        break;
+                    case ulong ul:
+                        container.Add(ul);
+                        break;
+                    case double d:
+                        container.Add(d);
+                        break;
+                    case string s:
+                        container.Add(s);
+                        break;
+                    case BymlIter sub:
+                        container.Add(Copy(sub));
+                        break;
+                    case null:
+                        container.AddNull();
+                        break;
+                    default:
+                        throw new ArgumentException($"Invalid type {value.GetType()}", nameof(iter));
+                }
+            } else {
+                Debug.Assert(key != null, nameof(key) + " != null");
+                switch (value) {
+                    case bool b:
+                        container.Add(key, b);
+                        break;
+                    case int i:
+                        container.Add(key, i);
+                        break;
+                    case uint u:
+                        container.Add(key, u);
+                        break;
+                    case float f:
+                        container.Add(key, f);
+                        break;
+                    case long l:
+                        container.Add(key, l);
+                        break;
+                    case ulong ul:
+                        container.Add(key, ul);
+                        break;
+                    case double d:
+                        container.Add(key, d);
+                        break;
+                    case string s:
+                        container.Add(key, s);
+                        break;
+                    case BymlIter sub:
+                        container.Add(key, Copy(sub));
+                        break;
+                    case null:
+                        container.AddNull(key);
+                        break;
+                    default:
+                        throw new ArgumentException($"Invalid type {value.GetType()}", nameof(iter));
+                }
+            }
+        }
+
+        return container;
+    }
 }

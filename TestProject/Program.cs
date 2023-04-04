@@ -28,11 +28,6 @@ Memory<byte> data = File.ReadAllBytes(args[0]);
 
 BymlIter byml = new BymlIter(data);
 
-// byml.Where(x => x.Value is not BymlIter).ToDictionary(x => x.Key, x => x.Value);
-// foreach ((string? key, object? value) in byml) {
-//     Console.WriteLine($"{key} {value}");
-// }
-
 StringBuilder Dump(BymlIter iter, string indent = "", StringBuilder? builder = null) {
     if (!iter.TryGetSize(out int size)) throw new Exception("what");
 
@@ -45,7 +40,7 @@ StringBuilder Dump(BymlIter iter, string indent = "", StringBuilder? builder = n
         switch (type) {
             case BymlDataType.String: {
                 if (!iter.TryGetValue(i, out string? value)) throw new Exception("...????");
-                builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
+                builder.AppendLine(value!.ToString(CultureInfo.InvariantCulture));
                 break;
             }
             case BymlDataType.Bool: {
@@ -101,95 +96,12 @@ StringBuilder Dump(BymlIter iter, string indent = "", StringBuilder? builder = n
     return builder;
 }
 
-BymlContainer Reserialize(BymlIter iter) {
-    BymlContainer container = iter.Type switch {
-        BymlDataType.Array => new BymlArray(),
-        BymlDataType.Hash => new BymlHash(),
-        _ => throw new ArgumentException("Root data type must be Array or Hash")
-    };
-
-    foreach ((string? key, object? value) in iter) {
-        if (iter.Type == BymlDataType.Array) {
-            switch (value) {
-                case bool b:
-                    container.Add(b);
-                    break;
-                case int i:
-                    container.Add(i);
-                    break;
-                case uint u:
-                    container.Add(u);
-                    break;
-                case float f:
-                    container.Add(f);
-                    break;
-                case long l:
-                    container.Add(l);
-                    break;
-                case ulong ul:
-                    container.Add(ul);
-                    break;
-                case double d:
-                    container.Add(d);
-                    break;
-                case string s:
-                    container.Add(s);
-                    break;
-                case BymlIter sub:
-                    container.Add(Reserialize(sub));
-                    break;
-                case null:
-                    container.AddNull();
-                    break;
-                default: throw new Exception("wwwwwfwsdmgkasd");
-            }
-        } else {
-            Debug.Assert(key != null, nameof(key) + " != null");
-            switch (value) {
-                case bool b:
-                    container.Add(key, b);
-                    break;
-                case int i:
-                    container.Add(key, i);
-                    break;
-                case uint u:
-                    container.Add(key, u);
-                    break;
-                case float f:
-                    container.Add(key, f);
-                    break;
-                case long l:
-                    container.Add(key, l);
-                    break;
-                case ulong ul:
-                    container.Add(key, ul);
-                    break;
-                case double d:
-                    container.Add(key, d);
-                    break;
-                case string s:
-                    container.Add(key, s);
-                    break;
-                case BymlIter sub:
-                    container.Add(key, Reserialize(sub));
-                    break;
-                case null:
-                    container.AddNull(key);
-                    break;
-                default: throw new Exception("wwwwwfwsdmgkasd");
-            }
-        }
-    }
-
-    return container;
-}
-
 // Dump(byml);
-BymlWriter reser = new BymlWriter(Reserialize(byml));
+BymlWriter reser = new BymlWriter(BymlWriter.Copy(byml));
 data = reser.Serialize(byml.Version);
 // Dump(byml);
+File.WriteAllBytes("Moog.byml", data.ToArray());
 File.WriteAllText("Old.yml", Dump(byml).ToString());
 File.WriteAllText("New.yml", Dump(new BymlIter(data)).ToString());
-File.WriteAllBytes("Moog.byml", data.ToArray());
 Console.WriteLine("Done!");
 Console.ReadKey();
