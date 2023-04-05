@@ -1,7 +1,7 @@
 ﻿namespace HakoniwaByml.Iter;
 
 public enum BymlDataType : byte {
-    Invalid = 0,
+    Invalid = 0x00,
     String = 0xA0,
     Binary = 0xA1,
     Array = 0xC0,

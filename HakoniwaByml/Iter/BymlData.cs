@@ -2,7 +2,7 @@
 
 namespace HakoniwaByml.Iter;
 
-internal record struct BymlData(BymlDataType Type, int DataOffset) {
+public readonly record struct BymlData(BymlDataType Type, int DataOffset) {
     public bool TryGetBool(ref BymlIter iter, out bool value) {
         value = default;
         if (Type == BymlDataType.Bool) {

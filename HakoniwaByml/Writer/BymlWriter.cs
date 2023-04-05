@@ -109,6 +109,11 @@ public sealed class BymlWriter {
             }
             i++;
         }
+
+        // Write address for end of string table
+        writer.BaseStream.Position = offsetsPos;
+        writer.Write(offset);
+
         long l = writer.BaseStream.Position = addrStart + offset;
         l = (4 - (offset & 0b11));
         for (int j = 0; j < l; j++) {
@@ -150,12 +155,12 @@ public sealed class BymlWriter {
 
         lock (HashKeys) {
             List<KeyValuePair<string, List<long>>> hashKeys = HashKeys.ToList();
-            hashKeys.Sort((x, y) => string.Compare(x.Key, y.Key, StringComparison.Ordinal));
+            hashKeys.Sort((x, y) => Extensions.StringCompare(x.Key, y.Key));
             header.HashKeyTableOffset = SerializeStringTable(writer, dataWriter, hashKeys, MaxHashLength, true);
         }
         lock (Strings) {
             List<KeyValuePair<string, List<long>>> strings = Strings.ToList();
-            strings.Sort((x, y) => string.Compare(x.Key, y.Key, StringComparison.Ordinal));
+            strings.Sort((x, y) => Extensions.StringCompare(x.Key, y.Key));
             header.StringTableOffset = SerializeStringTable(writer, dataWriter, strings, MaxStringLength, false);
         }
         header.DataOffset = (int) stream.Position;

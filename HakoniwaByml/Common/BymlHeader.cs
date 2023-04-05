@@ -1,6 +1,6 @@
 ﻿namespace HakoniwaByml.Common;
 
-internal struct BymlHeader {
+public struct BymlHeader {
     public const ushort LittleEndianMarker = 0x4259;
     public ushort Tag { get; set; }
     public ushort Version { get; set; }
