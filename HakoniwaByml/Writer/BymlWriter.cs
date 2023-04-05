@@ -13,6 +13,7 @@ public sealed class BymlWriter {
     private readonly Dictionary<string, List<long>> HashKeys = new Dictionary<string, List<long>>();
     private readonly Dictionary<string, List<long>> Strings = new Dictionary<string, List<long>>();
     private readonly Dictionary<BymlContainer, int> ContainerOffsets = new Dictionary<BymlContainer, int>();
+    private readonly List<(long, int)> OffsetFixups = new List<(long, int)>();
     public BymlContainer Root { get; }
     public BymlWriter(BymlDataType rootType) {
         Root = rootType switch {
@@ -23,6 +24,27 @@ public sealed class BymlWriter {
     }
     public BymlWriter(BymlContainer container) {
         Root = container;
+    }
+
+    public int AddFixup(long pos, int offset) {
+        OffsetFixups.Add((pos, offset));
+        return offset;
+    }
+
+    internal void InternHashString(string key) {
+        lock (HashKeys)
+            if (!HashKeys.ContainsKey(key)) {
+                MaxHashLength = Math.Max(MaxHashLength, Encoding.UTF8.GetByteCount(key));
+                HashKeys.TryAdd(key, new List<long>());
+            }
+    }
+
+    internal void InternString(string value) {
+        lock (Strings)
+            if (!Strings.ContainsKey(value)) {
+                MaxStringLength = Math.Max(MaxStringLength, Encoding.UTF8.GetByteCount(value));
+                Strings.TryAdd(value, new List<long>());
+            }
     }
 
     internal int AddHashString(string key, long position) {
@@ -49,7 +71,8 @@ public sealed class BymlWriter {
         }
     }
 
-    private static int SerializeStringTable(BinaryWriter writer, List<KeyValuePair<string, List<long>>> list,
+    private static int SerializeStringTable(BinaryWriter writer, BinaryWriter dataWriter,
+        List<KeyValuePair<string, List<long>>> list,
         int maxSize, bool hash) {
         if (list.Count == 0)
             return 0;
@@ -73,15 +96,15 @@ public sealed class BymlWriter {
             offsetsPos += 4;
 
             foreach (long pos in longs) {
-                writer.BaseStream.Position = pos;
+                dataWriter.BaseStream.Position = pos;
                 if (hash) {
-                    _ = writer.BaseStream.Read(hashSpan);
-                    writer.BaseStream.Position -= hashSpan.Length;
+                    _ = dataWriter.BaseStream.Read(hashSpan);
+                    dataWriter.BaseStream.Position -= hashSpan.Length;
                     ref BymlHashPair pair = ref MemoryMarshal.AsRef<BymlHashPair>(hashSpan);
                     pair.Key = i;
-                    writer.Write(ref pair);
+                    dataWriter.Write(ref pair);
                 } else {
-                    writer.Write(i);
+                    dataWriter.Write(i);
                 }
             }
             i++;
@@ -119,19 +142,29 @@ public sealed class BymlWriter {
 
         BymlHeader header = new BymlHeader {
             Tag = BymlHeader.LittleEndianMarker,
-            Version = version,
-            DataOffset = Root.Serialize(this, writer)
+            Version = version
         };
+        using MemoryStream dataStream = new MemoryStream();
+        using BinaryWriter dataWriter = new BinaryWriter(dataStream);
+        _ = Root.Serialize(this, dataWriter);
 
-        lock (Strings) {
-            List<KeyValuePair<string, List<long>>> strings = Strings.ToList();
-            strings.Sort((x, y) => string.Compare(x.Key, y.Key, StringComparison.Ordinal));
-            header.StringTableOffset = SerializeStringTable(writer, strings, MaxStringLength, false);
-        }
         lock (HashKeys) {
             List<KeyValuePair<string, List<long>>> hashKeys = HashKeys.ToList();
             hashKeys.Sort((x, y) => string.Compare(x.Key, y.Key, StringComparison.Ordinal));
-            header.HashKeyTableOffset = SerializeStringTable(writer, hashKeys, MaxHashLength, true);
+            header.HashKeyTableOffset = SerializeStringTable(writer, dataWriter, hashKeys, MaxHashLength, true);
+        }
+        lock (Strings) {
+            List<KeyValuePair<string, List<long>>> strings = Strings.ToList();
+            strings.Sort((x, y) => string.Compare(x.Key, y.Key, StringComparison.Ordinal));
+            header.StringTableOffset = SerializeStringTable(writer, dataWriter, strings, MaxStringLength, false);
+        }
+        header.DataOffset = (int) stream.Position;
+        {
+            foreach ((long pos, int offset) in OffsetFixups) {
+                dataStream.Position = pos;
+                dataWriter.Write(header.DataOffset + offset);
+            }
+            stream.Write(dataStream.ToArray());
         }
 
         stream.Position = 0;
@@ -145,7 +178,6 @@ public sealed class BymlWriter {
     }
 
     #region Root node add methods
-
     public void AddNull() { Root.AddNull(); }
     public void Add(bool value) { Root.Add(value); }
     public void Add(int value) { Root.Add(value); }
@@ -169,7 +201,6 @@ public sealed class BymlWriter {
     public void Add(string key, BymlArray value) { Root.Add(key, value); }
     public void Add(string key, BymlHash value) { Root.Add(key, value); }
     public void Add(string key, BymlContainer value) { Root.Add(key, value); }
-
     #endregion
 
     public static BymlContainer Copy(BymlIter iter) {

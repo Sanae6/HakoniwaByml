@@ -95,10 +95,9 @@ StringBuilder Dump(BymlIter iter, string indent = "", StringBuilder? builder = n
     return builder;
 }
 
-// Dump(byml);
 BymlWriter reser = new BymlWriter(BymlWriter.Copy(byml));
 data = reser.Serialize(byml.Version);
-// Dump(byml);
+
 File.WriteAllBytes("Moog.byml", data.ToArray());
 File.WriteAllText("Old.yml", Dump(byml).ToString());
 File.WriteAllText("New.yml", Dump(new BymlIter(data)).ToString());

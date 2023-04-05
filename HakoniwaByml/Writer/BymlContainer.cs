@@ -77,6 +77,7 @@ public sealed class BymlArray : BymlContainer {
             writer.BaseStream.Position = nodePos;
             nodePos += 4;
             if (wroteData) {
+                owner.AddFixup(writer.BaseStream.Position, (int) dataOffset);
                 writer.Write((int) dataOffset);
             } else {
                 switch (value) {
@@ -170,18 +171,22 @@ public sealed class BymlHash : BymlContainer {
             switch (value) {
                 case long l:
                     writer.Write(l);
+                    owner.AddFixup(entryPos + 4, (int) dataPos);
                     dataPos += 8;
                     break;
                 case ulong u:
                     writer.Write(u);
+                    owner.AddFixup(entryPos + 4, (int) dataPos);
                     dataPos += 8;
                     break;
                 case double d:
                     writer.Write(d);
+                    owner.AddFixup(entryPos + 4, (int) dataPos);
                     dataPos += 8;
                     break;
                 case BymlContainer c:
                     pair.Value = owner.SerializeContainer(c, writer);
+                    owner.AddFixup(entryPos + 4, (int) dataPos);
                     dataPos = writer.BaseStream.Position;
                     break;
                 case int i:
@@ -201,8 +206,8 @@ public sealed class BymlHash : BymlContainer {
                     break;
             }
             writer.BaseStream.Position = entryPos;
-            entryPos += 8;
             writer.Write(ref pair);
+            entryPos += 8;
         }
 
         // set stream pos to end of node
