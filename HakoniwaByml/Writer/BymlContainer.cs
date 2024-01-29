@@ -148,6 +148,17 @@ public sealed class BymlArray : BymlContainer {
         }, value));
     }
 
+    public override bool Equals(object? obj) {
+        if (obj is not BymlArray array) return false;
+        if (Nodes.Count != array.Nodes.Count) return false;
+        foreach (((BymlDataType leftType,object? leftValue), (BymlDataType rightType, object? rightValue)) in Nodes.Zip(array.Nodes)) {
+            if (leftType != rightType) return false;
+            if (!(leftValue?.Equals(rightValue) ?? false)) return false;
+        }
+
+        return true;
+    }
+
     private record struct Entry(BymlDataType Key, object? Value);
 }
 
@@ -257,6 +268,16 @@ public sealed class BymlHash : BymlContainer {
             BymlArray => BymlDataType.Array,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         }, name, value);
+    }
+
+    public override bool Equals(object? obj) {
+        if (obj is not BymlHash hash) return false;
+        if (!Nodes.SetEquals(hash.Nodes)) return false;
+        foreach (((_,_,object? leftValue), (_,_,object? rightValue)) in Nodes.Zip(hash.Nodes)) {
+            if (!(leftValue?.Equals(rightValue) ?? false)) return false;
+        }
+
+        return true;
     }
 
     public override object this[string key] {

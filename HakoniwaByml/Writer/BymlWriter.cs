@@ -15,6 +15,7 @@ public sealed class BymlWriter {
     private readonly Dictionary<BymlContainer, int> ContainerOffsets = new Dictionary<BymlContainer, int>();
     private readonly List<(long, int)> OffsetFixups = new List<(long, int)>();
     public BymlContainer Root { get; }
+
     public BymlWriter(BymlDataType rootType) {
         Root = rootType switch {
             BymlDataType.Array => new BymlArray(),
@@ -22,6 +23,7 @@ public sealed class BymlWriter {
             _ => throw new ArgumentException("Root data type must be Array or Hash", nameof(rootType))
         };
     }
+
     public BymlWriter(BymlContainer container) {
         Root = container;
     }
@@ -53,8 +55,9 @@ public sealed class BymlWriter {
                 list.Add(position);
             else {
                 MaxHashLength = Math.Max(MaxHashLength, Encoding.UTF8.GetByteCount(key));
-                HashKeys.Add(key, new List<long> {position});
+                HashKeys.Add(key, new List<long> { position });
             }
+
             return 0;
         }
     }
@@ -65,8 +68,9 @@ public sealed class BymlWriter {
                 list.Add(position);
             else {
                 MaxStringLength = Math.Max(MaxStringLength, Encoding.UTF8.GetByteCount(value));
-                Strings.Add(value, new List<long> {position});
+                Strings.Add(value, new List<long> { position });
             }
+
             return 0;
         }
     }
@@ -107,6 +111,7 @@ public sealed class BymlWriter {
                     dataWriter.Write(i);
                 }
             }
+
             i++;
         }
 
@@ -125,6 +130,12 @@ public sealed class BymlWriter {
 
     public int SerializeContainer(BymlContainer container, BinaryWriter writer) {
         if (ContainerOffsets.TryGetValue(container, out int offset)) return offset;
+        KeyValuePair<BymlContainer, int> containerEntry = ContainerOffsets.FirstOrDefault(x => x.Key.Equals(container));
+        if (containerEntry.Key != null) {
+            ContainerOffsets.Add(container, containerEntry.Value);
+            return containerEntry.Value;
+        }
+
         offset = container.Serialize(this, writer);
         ContainerOffsets.Add(container, offset);
         return offset;
@@ -136,10 +147,12 @@ public sealed class BymlWriter {
             MaxStringLength = 0;
             Strings.Clear();
         }
+
         lock (HashKeys) {
             MaxHashLength = 0;
             HashKeys.Clear();
         }
+
         using MemoryStream stream = new MemoryStream {
             Position = 16
         };
@@ -158,17 +171,20 @@ public sealed class BymlWriter {
             hashKeys.Sort((x, y) => Extensions.StringCompare(x.Key, y.Key));
             header.HashKeyTableOffset = SerializeStringTable(writer, dataWriter, hashKeys, MaxHashLength, true);
         }
+
         lock (Strings) {
             List<KeyValuePair<string, List<long>>> strings = Strings.ToList();
             strings.Sort((x, y) => Extensions.StringCompare(x.Key, y.Key));
             header.StringTableOffset = SerializeStringTable(writer, dataWriter, strings, MaxStringLength, false);
         }
+
         header.DataOffset = (int) stream.Position;
         {
             foreach ((long pos, int offset) in OffsetFixups) {
                 dataStream.Position = pos;
                 dataWriter.Write(header.DataOffset + offset);
             }
+
             stream.Write(dataStream.ToArray());
         }
 
@@ -183,29 +199,99 @@ public sealed class BymlWriter {
     }
 
     #region Root node add methods
-    public void AddNull() { Root.AddNull(); }
-    public void Add(bool value) { Root.Add(value); }
-    public void Add(int value) { Root.Add(value); }
-    public void Add(uint value) { Root.Add(value); }
-    public void Add(long value) { Root.Add(value); }
-    public void Add(ulong value) { Root.Add(value); }
-    public void Add(float value) { Root.Add(value); }
-    public void Add(double value) { Root.Add(value); }
-    public void Add(string value) { Root.Add(value); }
-    public void Add(BymlArray value) { Root.Add(value); }
-    public void Add(BymlHash value) { Root.Add(value); }
-    public void AddNull(string key) { Root.AddNull(key); }
-    public void Add(string key, bool value) { Root.Add(key, value); }
-    public void Add(string key, int value) { Root.Add(key, value); }
-    public void Add(string key, uint value) { Root.Add(key, value); }
-    public void Add(string key, long value) { Root.Add(key, value); }
-    public void Add(string key, ulong value) { Root.Add(key, value); }
-    public void Add(string key, float value) { Root.Add(key, value); }
-    public void Add(string key, double value) { Root.Add(key, value); }
-    public void Add(string key, string value) { Root.Add(key, value); }
-    public void Add(string key, BymlArray value) { Root.Add(key, value); }
-    public void Add(string key, BymlHash value) { Root.Add(key, value); }
-    public void Add(string key, BymlContainer value) { Root.Add(key, value); }
+
+    public void AddNull() {
+        Root.AddNull();
+    }
+
+    public void Add(bool value) {
+        Root.Add(value);
+    }
+
+    public void Add(int value) {
+        Root.Add(value);
+    }
+
+    public void Add(uint value) {
+        Root.Add(value);
+    }
+
+    public void Add(long value) {
+        Root.Add(value);
+    }
+
+    public void Add(ulong value) {
+        Root.Add(value);
+    }
+
+    public void Add(float value) {
+        Root.Add(value);
+    }
+
+    public void Add(double value) {
+        Root.Add(value);
+    }
+
+    public void Add(string value) {
+        Root.Add(value);
+    }
+
+    public void Add(BymlArray value) {
+        Root.Add(value);
+    }
+
+    public void Add(BymlHash value) {
+        Root.Add(value);
+    }
+
+    public void AddNull(string key) {
+        Root.AddNull(key);
+    }
+
+    public void Add(string key, bool value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, int value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, uint value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, long value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, ulong value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, float value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, double value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, string value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, BymlArray value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, BymlHash value) {
+        Root.Add(key, value);
+    }
+
+    public void Add(string key, BymlContainer value) {
+        Root.Add(key, value);
+    }
+
     #endregion
 
     public static BymlContainer Copy(BymlIter iter) {
