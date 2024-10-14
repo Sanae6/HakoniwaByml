@@ -430,6 +430,18 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
         }
     }
 
+    public object? this[string key]
+    {
+        get
+        {
+            if (!Iterable)
+                throw new InvalidCastException("This node is not iterable.");
+            if (!TryGetValue(key, out object? value))
+                throw new ArgumentOutOfRangeException(nameof(key));
+            return value;
+        }
+    }
+
     public IEnumerable<KeyValuePair<string?, T?>> As<T>() {
         return this.Select(pair => new KeyValuePair<string?, T?>(pair.Key, (T?) pair.Value));
     }
