@@ -12,7 +12,7 @@ public sealed class BymlWriter {
     private int MaxStringLength;
     private readonly Dictionary<string, List<long>> HashKeys = new Dictionary<string, List<long>>();
     private readonly Dictionary<string, List<long>> Strings = new Dictionary<string, List<long>>();
-    private readonly Dictionary<BymlContainer, int> ContainerOffsets = new Dictionary<BymlContainer, int>();
+    private readonly Dictionary<BymlContainer, int> ContainerOffsets = new Dictionary<BymlContainer, int>(ReferenceEqualityComparer.Instance);
     private readonly List<(long, int)> OffsetFixups = new List<(long, int)>();
     public BymlContainer Root { get; }
 
@@ -128,17 +128,17 @@ public sealed class BymlWriter {
         return (int) addrStart;
     }
 
-    public int SerializeContainer(BymlContainer container, BinaryWriter writer) {
-        if (ContainerOffsets.TryGetValue(container, out int offset)) return offset;
+    public (int, bool) SerializeContainer(BymlContainer container, BinaryWriter writer) {
+        if (ContainerOffsets.TryGetValue(container, out int offset)) return (offset, false);
         KeyValuePair<BymlContainer, int> containerEntry = ContainerOffsets.FirstOrDefault(x => x.Key.Equals(container));
         if (containerEntry.Key != null) {
             ContainerOffsets.Add(container, containerEntry.Value);
-            return containerEntry.Value;
+            return (containerEntry.Value, false);
         }
 
         offset = container.Serialize(this, writer);
         ContainerOffsets.Add(container, offset);
-        return offset;
+        return (offset, true);
     }
 
     public Memory<byte> Serialize(ushort version = 3) {
