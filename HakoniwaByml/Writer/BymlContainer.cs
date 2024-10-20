@@ -6,31 +6,106 @@ namespace HakoniwaByml.Writer;
 
 public abstract class BymlContainer {
     internal abstract int Serialize(BymlWriter owner, BinaryWriter writer);
-    public virtual void AddNull() { throw new NotSupportedException(); }
-    public virtual void Add(bool value) { throw new NotSupportedException(); }
-    public virtual void Add(int value) { throw new NotSupportedException(); }
-    public virtual void Add(uint value) { throw new NotSupportedException(); }
-    public virtual void Add(long value) { throw new NotSupportedException(); }
-    public virtual void Add(ulong value) { throw new NotSupportedException(); }
-    public virtual void Add(float value) { throw new NotSupportedException(); }
-    public virtual void Add(double value) { throw new NotSupportedException(); }
-    public virtual void Add(string value) { throw new NotSupportedException(); }
-    public virtual void Add(BymlArray value) { throw new NotSupportedException(); }
-    public virtual void Add(BymlHash value) { throw new NotSupportedException(); }
-    public virtual void Add(BymlContainer value) { throw new NotSupportedException(); }
-    public virtual void AddNull(string key) { throw new NotSupportedException(); }
-    public virtual void Add(string key, bool value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, int value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, uint value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, long value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, ulong value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, float value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, double value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, string value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, BymlArray value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, BymlHash value) { throw new NotSupportedException(); }
-    public virtual void Add(string key, BymlContainer value) { throw new NotSupportedException(); }
-    public virtual object this[string key] { set => throw new NotSupportedException(); }
+
+    public virtual void AddNull() {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(bool value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(int value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(uint value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(long value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(ulong value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(float value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(double value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(BymlArray value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(BymlHash value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(BymlContainer value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void AddNull(string key) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, bool value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, int value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, uint value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, long value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, ulong value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, float value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, double value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, string value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, BymlArray value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, BymlHash value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual void Add(string key, BymlContainer value) {
+        throw new NotSupportedException();
+    }
+
+    public virtual object this[string key] {
+        set => throw new NotSupportedException();
+    }
 }
 
 public sealed class BymlArray : BymlContainer {
@@ -43,12 +118,12 @@ public sealed class BymlArray : BymlContainer {
             dataPos = nodePos + Nodes.Count * 4;
 
         Span<byte> header = stackalloc byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(header, Nodes.Count << 8 | (int) BymlDataType.Array);
+        BinaryPrimitives.WriteInt32LittleEndian(header, Nodes.Count << 8 | (int)BymlDataType.Array);
         writer.Write(header);
 
         foreach ((BymlDataType type, object? value) in Nodes) {
             writer.BaseStream.Position = typePos++;
-            writer.Write((byte) type);
+            writer.Write((byte)type);
             long dataOffset = dataPos;
             bool wroteData = true;
             writer.BaseStream.Position = dataPos;
@@ -66,8 +141,12 @@ public sealed class BymlArray : BymlContainer {
                     dataPos += 8;
                     break;
                 case BymlContainer c:
-                    dataOffset = owner.SerializeContainer(c, writer);
-                    dataPos += writer.BaseStream.Position - dataPos;
+                    var (offset, written) = owner.SerializeContainer(c, writer);
+                    dataOffset = offset;
+                    if (written) {
+                        dataPos += writer.BaseStream.Position - dataPos;
+                    }
+
                     break;
                 default:
                     wroteData = false;
@@ -77,9 +156,10 @@ public sealed class BymlArray : BymlContainer {
             writer.BaseStream.Position = nodePos;
             nodePos += 4;
             if (wroteData) {
-                owner.AddFixup(writer.BaseStream.Position, (int) dataOffset);
-                writer.Write((int) dataOffset);
-            } else {
+                owner.AddFixup(writer.BaseStream.Position, (int)dataOffset);
+                writer.Write((int)dataOffset);
+            }
+            else {
                 switch (value) {
                     case int i:
                         writer.Write(i);
@@ -105,41 +185,53 @@ public sealed class BymlArray : BymlContainer {
 
         // set stream pos to end of node
         writer.BaseStream.Position = dataPos;
-        return (int) basePos;
+        return (int)basePos;
     }
+
     public override void AddNull() {
         Nodes.Add(new Entry(BymlDataType.Null, null!));
     }
+
     public override void Add(bool value) {
         Nodes.Add(new Entry(BymlDataType.Bool, value));
     }
+
     public override void Add(int value) {
         Nodes.Add(new Entry(BymlDataType.Int, value));
     }
+
     public override void Add(uint value) {
         Nodes.Add(new Entry(BymlDataType.Uint, value));
     }
+
     public override void Add(long value) {
         Nodes.Add(new Entry(BymlDataType.Long, value));
     }
+
     public override void Add(ulong value) {
         Nodes.Add(new Entry(BymlDataType.Ulong, value));
     }
+
     public override void Add(float value) {
         Nodes.Add(new Entry(BymlDataType.Float, value));
     }
+
     public override void Add(double value) {
         Nodes.Add(new Entry(BymlDataType.Double, value));
     }
+
     public override void Add(string value) {
         Nodes.Add(new Entry(BymlDataType.String, value));
     }
+
     public override void Add(BymlArray value) {
         Nodes.Add(new Entry(BymlDataType.Array, value));
     }
+
     public override void Add(BymlHash value) {
         Nodes.Add(new Entry(BymlDataType.Hash, value));
     }
+
     public override void Add(BymlContainer value) {
         Nodes.Add(new Entry(value switch {
             BymlHash => BymlDataType.Hash,
@@ -151,7 +243,8 @@ public sealed class BymlArray : BymlContainer {
     public override bool Equals(object? obj) {
         if (obj is not BymlArray array) return false;
         if (Nodes.Count != array.Nodes.Count) return false;
-        foreach (((BymlDataType leftType,object? leftValue), (BymlDataType rightType, object? rightValue)) in Nodes.Zip(array.Nodes)) {
+        foreach (((BymlDataType leftType, object? leftValue), (BymlDataType rightType, object? rightValue)) in
+                 Nodes.Zip(array.Nodes)) {
             if (leftType != rightType) return false;
             if (!(leftValue?.Equals(rightValue) ?? false)) return false;
         }
@@ -170,41 +263,45 @@ public sealed class BymlHash : BymlContainer {
         long entryPos = basePos + 4,
             dataPos = (entryPos + Nodes.Count * 8).Align(0b11) + Nodes.Count * 4;
 
-        writer.Write(Nodes.Count << 8 | (int) BymlDataType.Hash);
+        writer.Write(Nodes.Count << 8 | (int)BymlDataType.Hash);
 
         foreach ((BymlDataType type, string name, object? value) in Nodes) {
             BymlHashPair pair = new BymlHashPair {
                 Type = type,
                 Key = owner.AddHashString(name, entryPos),
-                Value = (int) dataPos
+                Value = (int)dataPos
             };
             writer.BaseStream.Position = dataPos;
             switch (value) {
                 case long l:
                     writer.Write(l);
-                    owner.AddFixup(entryPos + 4, (int) dataPos);
+                    owner.AddFixup(entryPos + 4, (int)dataPos);
                     dataPos += 8;
                     break;
                 case ulong u:
                     writer.Write(u);
-                    owner.AddFixup(entryPos + 4, (int) dataPos);
+                    owner.AddFixup(entryPos + 4, (int)dataPos);
                     dataPos += 8;
                     break;
                 case double d:
                     writer.Write(d);
-                    owner.AddFixup(entryPos + 4, (int) dataPos);
+                    owner.AddFixup(entryPos + 4, (int)dataPos);
                     dataPos += 8;
                     break;
                 case BymlContainer c:
-                    pair.Value = owner.SerializeContainer(c, writer);
-                    owner.AddFixup(entryPos + 4, (int) dataPos);
-                    dataPos = writer.BaseStream.Position;
+                    var (offset, written) = owner.SerializeContainer(c, writer);
+                    pair.Value = offset;
+                    owner.AddFixup(entryPos + 4, offset);
+                    if (written) {
+                        dataPos = writer.BaseStream.Position;
+                    }
+
                     break;
                 case int i:
                     pair.Value = i;
                     break;
                 case uint u:
-                    pair.Value = (int) u;
+                    pair.Value = (int)u;
                     break;
                 case float f:
                     pair.Value = BitConverter.SingleToInt32Bits(f);
@@ -216,6 +313,7 @@ public sealed class BymlHash : BymlContainer {
                     pair.Value = owner.AddString(s, entryPos + 4);
                     break;
             }
+
             writer.BaseStream.Position = entryPos;
             writer.Write(ref pair);
             entryPos += 8;
@@ -223,45 +321,58 @@ public sealed class BymlHash : BymlContainer {
 
         // set stream pos to end of node
         writer.BaseStream.Position = dataPos;
-        return (int) basePos;
+        return (int)basePos;
     }
+
     private void Add(BymlDataType type, string name, object data) {
         if (!Nodes.Add(new Entry(type, name, data)))
             throw new ArgumentException("A node with the same key already exists.", nameof(name));
     }
+
     public override void AddNull(string name) {
         Add(BymlDataType.Null, name, null!);
     }
+
     public override void Add(string name, bool value) {
         Add(BymlDataType.Bool, name, value);
     }
+
     public override void Add(string name, int value) {
         Add(BymlDataType.Int, name, value);
     }
+
     public override void Add(string name, uint value) {
         Add(BymlDataType.Uint, name, value);
     }
+
     public override void Add(string name, long value) {
         Add(BymlDataType.Long, name, value);
     }
+
     public override void Add(string name, ulong value) {
         Add(BymlDataType.Ulong, name, value);
     }
+
     public override void Add(string name, float value) {
         Add(BymlDataType.Float, name, value);
     }
+
     public override void Add(string name, double value) {
         Add(BymlDataType.Double, name, value);
     }
+
     public override void Add(string name, string value) {
         Add(BymlDataType.String, name, value);
     }
+
     public override void Add(string name, BymlArray value) {
         Add(BymlDataType.Array, name, value);
     }
+
     public override void Add(string name, BymlHash value) {
         Add(BymlDataType.Hash, name, value);
     }
+
     public override void Add(string name, BymlContainer value) {
         Add(value switch {
             BymlHash => BymlDataType.Hash,
@@ -273,7 +384,7 @@ public sealed class BymlHash : BymlContainer {
     public override bool Equals(object? obj) {
         if (obj is not BymlHash hash) return false;
         if (!Nodes.SetEquals(hash.Nodes)) return false;
-        foreach (((_,_,object? leftValue), (_,_,object? rightValue)) in Nodes.Zip(hash.Nodes)) {
+        foreach (((_, _, object? leftValue), (_, _, object? rightValue)) in Nodes.Zip(hash.Nodes)) {
             if (!(leftValue?.Equals(rightValue) ?? false)) return false;
         }
 
