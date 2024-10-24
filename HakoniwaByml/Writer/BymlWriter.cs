@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Collections;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -12,7 +13,7 @@ public sealed class BymlWriter {
     private int MaxStringLength;
     private readonly Dictionary<string, List<long>> HashKeys = new Dictionary<string, List<long>>();
     private readonly Dictionary<string, List<long>> Strings = new Dictionary<string, List<long>>();
-    private readonly Dictionary<BymlContainer, int> ContainerOffsets = new Dictionary<BymlContainer, int>(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<int, int> ContainerOffsets = new Dictionary<int, int>();
     private readonly List<(long, int)> OffsetFixups = new List<(long, int)>();
     public BymlContainer Root { get; }
 
@@ -129,15 +130,12 @@ public sealed class BymlWriter {
     }
 
     public (int, bool) SerializeContainer(BymlContainer container, BinaryWriter writer) {
-        if (ContainerOffsets.TryGetValue(container, out int offset)) return (offset, false);
-        KeyValuePair<BymlContainer, int> containerEntry = ContainerOffsets.FirstOrDefault(x => x.Key.Equals(container));
-        if (containerEntry.Key != null) {
-            ContainerOffsets.Add(container, containerEntry.Value);
-            return (containerEntry.Value, false);
-        }
+        int containerHash = container.GetHashCode();
+        if (ContainerOffsets.TryGetValue(containerHash, out int offset))
+            return (offset, false);
 
         offset = container.Serialize(this, writer);
-        ContainerOffsets.Add(container, offset);
+        ContainerOffsets.Add(containerHash, offset);
         return (offset, true);
     }
 

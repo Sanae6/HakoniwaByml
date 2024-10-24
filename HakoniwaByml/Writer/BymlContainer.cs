@@ -252,6 +252,34 @@ public sealed class BymlArray : BymlContainer {
         return true;
     }
 
+    public void AddObject(object? value)
+    {
+        Nodes.Add(new Entry(value switch
+        {
+            bool => BymlDataType.Bool,
+            int => BymlDataType.Int,
+            uint => BymlDataType.Uint,
+            long => BymlDataType.Long,
+            ulong => BymlDataType.Ulong,
+            float => BymlDataType.Float,
+            double => BymlDataType.Double,
+            string => BymlDataType.String,
+            BymlHash => BymlDataType.Hash,
+            BymlArray => BymlDataType.Array,
+            _ => throw new ArgumentException("Invalid type passed.", nameof(value))
+        }, value));
+    }
+
+    public override int GetHashCode()
+    {
+        HashCode result = new HashCode();
+
+        foreach (var node in Nodes)
+            result.Add(HashCode.Combine(node.Key, node.Value));
+
+        return result.ToHashCode();
+    }
+
     private record struct Entry(BymlDataType Key, object? Value);
 }
 
@@ -389,6 +417,16 @@ public sealed class BymlHash : BymlContainer {
         }
 
         return true;
+    }
+
+    public override int GetHashCode()
+    {
+        HashCode result = new HashCode();
+
+        foreach (var node in Nodes)
+            result.Add(HashCode.Combine(node.Type, node.Name, node.Value));
+
+        return result.ToHashCode();
     }
 
     public override object this[string key] {
