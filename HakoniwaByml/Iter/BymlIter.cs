@@ -19,7 +19,7 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
         Buffer = data;
         Header = MemoryMarshal.Read<BymlHeader>(Buffer.Span);
         RootNode = Header.DataOffset;
-        Type = (BymlDataType) data.Span[RootNode];
+        Type = Header.DataOffset == 0 && Header.HashKeyTableOffset == 0 && Header.StringTableOffset == 0 ? BymlDataType.Null : (BymlDataType)data.Span[RootNode];
         if (!LittleEndian) throw new Exception("Big endian not supported!");
     }
 
