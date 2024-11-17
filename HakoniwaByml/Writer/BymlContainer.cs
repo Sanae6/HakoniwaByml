@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Text;
 using HakoniwaByml.Common;
 using HakoniwaByml.Iter;
 
@@ -105,6 +106,11 @@ public abstract class BymlContainer {
 
     public virtual object this[string key] {
         set => throw new NotSupportedException();
+    }
+
+    public virtual string ToYaml(int depth = 0)
+    {
+        throw new NotSupportedException();
     }
 }
 
@@ -280,6 +286,24 @@ public sealed class BymlArray : BymlContainer {
         return result.ToHashCode();
     }
 
+    public override string ToYaml(int depth = 0)
+    {
+        StringBuilder result = new StringBuilder();
+        int idx = 0;
+        foreach (var entry in Nodes)
+        {
+            var label = $"{idx++}: ";
+            result.Append(label.PadLeft(label.Length + depth, '\t'));
+            if (entry.Value is BymlContainer container)
+                result.Append($"\n{container.ToYaml(depth + 1)}");
+            else if (entry.Key == BymlDataType.Null)
+                result.AppendLine("null");
+            else
+                result.AppendLine(entry.Value.ToString());
+        }
+        return result.ToString();
+    }
+
     private record struct Entry(BymlDataType Key, object? Value);
 }
 
@@ -443,6 +467,23 @@ public sealed class BymlHash : BymlContainer {
             BymlArray => BymlDataType.Array,
             _ => throw new ArgumentException("Invalid type passed.", nameof(value))
         }, key, value);
+    }
+
+    public override string ToYaml(int depth = 0)
+    {
+        StringBuilder result = new StringBuilder();
+        foreach (var entry in Nodes)
+        {
+            var label = $"{entry.Name}: ";
+            result.Append(label.PadLeft(label.Length + depth, '\t'));
+            if (entry.Value is BymlContainer container)
+                result.Append($"\n{container.ToYaml(depth + 1)}");
+            else if (entry.Type == BymlDataType.Null)
+                result.AppendLine("null");
+            else
+                result.AppendLine(entry.Value.ToString());
+        }
+        return result.ToString();
     }
 
     private record struct Entry(BymlDataType Type, string Name, object Value);

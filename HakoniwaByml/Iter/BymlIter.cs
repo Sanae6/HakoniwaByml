@@ -1,7 +1,9 @@
 ﻿using System.Buffers.Binary;
 using System.Collections;
 using System.Runtime.InteropServices;
+using System.Text;
 using HakoniwaByml.Common;
+using HakoniwaByml.Writer;
 
 namespace HakoniwaByml.Iter;
 
@@ -463,5 +465,27 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
     IEnumerator IEnumerable.GetEnumerator() {
         return ((IEnumerable<KeyValuePair<string, object?>>) this).GetEnumerator();
     }
+
+    public string ToYaml(int indentLevel = 0)
+    {
+        StringBuilder result = new StringBuilder();
+
+        foreach ((var key, var value) in this)
+        {
+            var label = $"{key}: ";
+            result.Append(label.PadLeft(label.Length + indentLevel, '\t'));
+
+            if (value is null)
+                result.AppendLine("null");
+            else if (value is BymlIter iter)
+                result.Append($"\n{iter.ToYaml(indentLevel+1)}");
+            else
+                result.AppendLine(value.ToString());
+        }
+
+        return result.ToString();
+    }
+
+
     #endregion
 }
