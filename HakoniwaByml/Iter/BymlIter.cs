@@ -445,11 +445,11 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
     }
 
     public IEnumerable<KeyValuePair<string?, T?>> As<T>() {
-        return this.Select(pair => new KeyValuePair<string?, T?>(pair.Key, (T?) pair.Value));
+        return this.Select(pair => new KeyValuePair<string?, T?>(pair.Key, pair.Value != null ? (T?) pair.Value : default(T)));
     }
 
     public IEnumerable<T?> AsArray<T>() {
-        return this.Select(pair => (T?) pair.Value);
+        return this.Select(pair => pair.Value != null ? (T?)pair.Value : default(T));
     }
 
     IEnumerator<KeyValuePair<string?, object?>> IEnumerable<KeyValuePair<string?, object?>>.GetEnumerator() {
