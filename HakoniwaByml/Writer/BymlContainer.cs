@@ -104,6 +104,8 @@ public abstract class BymlContainer {
         throw new NotSupportedException();
     }
 
+    public virtual int Length() => throw new NotImplementedException();
+
     public virtual object this[string key] {
         set => throw new NotSupportedException();
     }
@@ -304,6 +306,8 @@ public sealed class BymlArray : BymlContainer {
         return result.ToString();
     }
 
+    public override int Length() => Nodes.Count;
+
     private record struct Entry(BymlDataType Key, object? Value);
 }
 
@@ -452,6 +456,8 @@ public sealed class BymlHash : BymlContainer {
 
         return result.ToHashCode();
     }
+    
+    public override int Length() => Nodes.Count;
 
     public override object this[string key] {
         set => Add(value switch {
