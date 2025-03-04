@@ -469,10 +469,11 @@ public sealed class BymlHash : BymlContainer {
             float => BymlDataType.Float,
             double => BymlDataType.Double,
             string => BymlDataType.String,
+            null => BymlDataType.Null,
             BymlHash => BymlDataType.Hash,
             BymlArray => BymlDataType.Array,
             _ => throw new ArgumentException("Invalid type passed.", nameof(value))
-        }, key, value);
+        }, key, value!);
     }
 
     public override string ToYaml(int depth = 0)
