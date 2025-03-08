@@ -1,5 +1,6 @@
 ﻿using System.Buffers.Binary;
 using System.Collections;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using HakoniwaByml.Common;
@@ -20,9 +21,10 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
     public BymlIter(ReadOnlyMemory<byte> data) {
         Buffer = data;
         Header = MemoryMarshal.Read<BymlHeader>(Buffer.Span);
+        if (!LittleEndian) throw new Exception("Invalid Header Tag! File is either big endian or not a BYML!");
+
         RootNode = Header.DataOffset;
         Type = Header.DataOffset == 0 && Header.HashKeyTableOffset == 0 && Header.StringTableOffset == 0 ? BymlDataType.Null : (BymlDataType)data.Span[RootNode];
-        if (!LittleEndian) throw new Exception("Big endian not supported!");
     }
 
     internal BymlIter(BymlIter owner, int rootNode) {
@@ -486,6 +488,10 @@ public record struct BymlIter : IEnumerable<KeyValuePair<string?, object?>> {
         return result.ToString();
     }
 
+    public static bool IsValid(ReadOnlySpan<byte> data)
+    {
+        return data.Length > Unsafe.SizeOf<BymlHeader>() && MemoryMarshal.Read<BymlHeader>(data).Tag == BymlHeader.LittleEndianMarker;
+    }
 
     #endregion
 }
